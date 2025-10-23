@@ -3,6 +3,8 @@ from datasets import load_dataset
 from transformers import AutoTokenizer, AutoModelForCausalLM, GPT2TokenizerFast, GPT2LMHeadModel, TrainingArguments, \
     Trainer
 
+from extract_emojis import extract_emojis
+
 if torch.cuda.is_available():
     print("Using GPU " + torch.cuda.get_device_name(0))
 
@@ -13,6 +15,11 @@ model: GPT2LMHeadModel = AutoModelForCausalLM.from_pretrained(model_name)
 if tokenizer.pad_token is None:
     tokenizer.add_special_tokens({'pad_token': '[PAD]'})
     model.resize_token_embeddings(len(tokenizer))
+
+emojis = extract_emojis()
+print(emojis)
+tokenizer.add_tokens(emojis)
+model.resize_token_embeddings(len(tokenizer))
 
 # ---------- Prepare dataset --------------
 dataset = load_dataset('text', data_files={'chat_train': 'conversations.txt'})
