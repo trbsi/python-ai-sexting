@@ -26,6 +26,6 @@ def reply(chat_history: str) -> str:
     return tokenizer.decode(reply_ids[0], skip_special_tokens=True)
 
 
-chat_history = ['User: How are you today?', 'Bot:']
+chat_history = ['User: What is 2+2?', 'Bot:']
 result = reply('\n'.join(chat_history))
 print(result)

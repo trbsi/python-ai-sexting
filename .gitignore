@@ -2,3 +2,4 @@
 .idea
 conversations.txt
 emojis_extracted.txt
+__pycache__
