@@ -20,7 +20,7 @@ os.makedirs('./trained_model')
 create_validation_data()
 
 # ---------- Load tokenizer and model -----------
-model_name = 'microsoft/DialoGPT-small'
+model_name = 'microsoft/DialoGPT-large'
 tokenizer: GPT2TokenizerFast = AutoTokenizer.from_pretrained(model_name)
 model: GPT2LMHeadModel = AutoModelForCausalLM.from_pretrained(model_name)
 if tokenizer.pad_token is None:
@@ -72,6 +72,9 @@ training_args = TrainingArguments(
     save_strategy="epoch",  # Save model after each epoch
     load_best_model_at_end=True,  # Keep the BEST model, not the last
     metric_for_best_model="eval_loss",  # Use validation loss to choose best
+
+    warmup_steps=100,  # Gradual start
+    weight_decay=0.01,  # Regularization
 )
 
 trainer = Trainer(
@@ -85,3 +88,5 @@ trainer.train()
 # --------- Save model ------------
 trainer.save_model('./trained_model')
 tokenizer.save_pretrained('./trained_model')
+
+print('DONE TRAINING')

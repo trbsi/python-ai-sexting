@@ -1,8 +1,6 @@
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
-tokenizer = AutoTokenizer.from_pretrained('./trained_model')
-model = AutoModelForCausalLM.from_pretrained('./trained_model')
 
 
 def reply(chat_history: str) -> str:
@@ -16,7 +14,7 @@ def reply(chat_history: str) -> str:
 
     reply_ids = model.generate(
         inputs,
-        max_length=120,
+        max_length=128,
         pad_token_id=tokenizer.eos_token_id,
         top_p=0.9,  # Keeps top 90% probability mass — more natural replies
         temperature=0.8,  # smooths token probabilities
@@ -26,6 +24,18 @@ def reply(chat_history: str) -> str:
     return tokenizer.decode(reply_ids[0], skip_special_tokens=True)
 
 
-chat_history = ['User: What is 2+2?', 'Bot:']
-result = reply('\n'.join(chat_history))
-print(result)
+model_names = [
+    'microsoft/DialoGPT-small',
+    'microsoft/DialoGPT-medium',
+    'microsoft/DialoGPT-large',
+    './trained_model',
+]
+
+for model_name in model_names:
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModelForCausalLM.from_pretrained(model_name)
+    chat_history = ['User: I will cum all over you bitch', 'Bot:']
+    result = reply('\n'.join(chat_history))
+    print(model_name)
+    print(result)
+    print('')
