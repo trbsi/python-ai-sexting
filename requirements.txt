@@ -1,4 +1,5 @@
 transformers
 datasets
 accelerate
-sklearn
+scikit-learn
+torch

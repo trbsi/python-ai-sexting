@@ -1,3 +1,5 @@
+from sklearn.model_selection import train_test_split
+
 
 def create_validation_data():
     with open('conversations.txt', 'r') as f:
