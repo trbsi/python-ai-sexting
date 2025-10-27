@@ -1,5 +1,6 @@
 .venv
 .idea
 conversations.txt
+conversations.json
 emojis_extracted.txt
 __pycache__

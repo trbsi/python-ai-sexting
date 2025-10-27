@@ -1,12 +1,26 @@
-import torch
-from datasets import load_dataset
-from transformers import AutoTokenizer, AutoModelForCausalLM, GPT2TokenizerFast, GPT2LMHeadModel, TrainingArguments, \
-    Trainer
+import json
 import os
 import shutil
 
-from extract_emojis import extract_emojis
-from validation import create_validation_data
+import torch
+from datasets import Dataset
+from huggingface_hub import login
+from transformers import AutoTokenizer, AutoModelForCausalLM, GPT2TokenizerFast, TrainingArguments, \
+    Trainer
+from transformers.models.auto.modeling_auto import _BaseModelWithGenerate
+
+
+def format_training_data(conversations: list) -> list:
+    formatted_data = []
+    for conversation in conversations:
+        text = tokenizer.apply_chat_template(conversation, tokenize=False)
+        formatted_data.append({'text': text})
+
+    return formatted_data
+
+
+# login to HuggingFace
+login(token=env)
 
 if torch.cuda.is_available():
     print("Using GPU " + torch.cuda.get_device_name(0))
@@ -16,72 +30,41 @@ if os.path.exists('./trained_model'):
     shutil.rmtree('./trained_model')
 os.makedirs('./trained_model')
 
-# ---------------- Prepare validation data -----------------
-create_validation_data()
-
 # ---------- Load tokenizer and model -----------
-model_name = 'microsoft/DialoGPT-large'
+model_name = 'meta-llama/Llama-4-Scout-17B-16E-Instruct'
+# model_name = 'google/gemma-3n-E4B-it'
 tokenizer: GPT2TokenizerFast = AutoTokenizer.from_pretrained(model_name)
-model: GPT2LMHeadModel = AutoModelForCausalLM.from_pretrained(model_name)
-if tokenizer.pad_token is None:
-    tokenizer.add_special_tokens({'pad_token': '[PAD]'})
-    model.resize_token_embeddings(len(tokenizer))
-
-emojis = extract_emojis()
-print(emojis)
-tokenizer.add_tokens(emojis)
-model.resize_token_embeddings(len(tokenizer))
-
-# ---------- Prepare dataset --------------
-dataset = load_dataset(
-    'text',
-    data_files={
-        'chat_train': 'conversations.txt',
-        'validation': 'validation_data.txt'
-    }
+model: _BaseModelWithGenerate = AutoModelForCausalLM.from_pretrained(
+    model_name,
+    torch_dtype=torch.float16,
+    device_map='auto'
 )
 
+print(type(tokenizer))
+print(type(model))
 
-# Apply tokenizer for each text entry
-def preprocess(training_text):
-    encodings = tokenizer(
-        training_text['text'],  # raw text
-        truncation=True,  # cut off if it's longer than max_length
-        padding="max_length",  # Pad shorter text with zeros
-        max_length=128  # Fixed token length of tokens (words) for uniform batches
-    )
-    encodings['labels'] = encodings['input_ids'].copy()
-    return encodings
+with open('conversations.json', 'r') as f:
+    conversations = json.load(f.read())
 
+formatted_data = format_training_data(conversations)
+dataset = Dataset.from_list(formatted_data)
 
-tokenized = dataset.map(preprocess, batched=True)
+print(formatted_data)
 
-# ------------ Start training --------------
 training_args = TrainingArguments(
-    output_dir='./trained_model',  # Folder where checkpoints and the final model are saved.
-    num_train_epochs=2,  # how many times the model will “read through” your dataset during training.
-    per_device_train_batch_size=2,  # How many examples are processed on each GPU at a time
-    save_steps=500,  # Save a checkpoint every N steps. Useful to avoid losing progress.
-    save_total_limit=2,  # Keep only the latest N checkpoints to save disk space.
-    logging_steps=500,  # How often to print training loss / metrics.
-    report_to='none',  # Where to send logs.
-    learning_rate=3e-5,
-
-    # VALIDATION SETTINGS
-    eval_strategy="epoch",  # Evaluate after each epoch
-    save_strategy="epoch",  # Save model after each epoch
-    load_best_model_at_end=True,  # Keep the BEST model, not the last
-    metric_for_best_model="eval_loss",  # Use validation loss to choose best
-
-    warmup_steps=100,  # Gradual start
-    weight_decay=0.01,  # Regularization
+    output_dir='./trained_model',
+    learning_rate=1e-5,
+    num_train_epochs=1,
+    logging_steps=10,
+    save_steps=500,
+    per_device_train_batch_size=4,
+    gradient_accumulation_steps=4
 )
 
 trainer = Trainer(
     model=model,
     args=training_args,
-    train_dataset=tokenized['chat_train'],
-    eval_dataset=tokenized['validation']
+    train_dataset=dataset,
 )
 trainer.train()
 

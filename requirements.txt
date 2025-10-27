@@ -3,3 +3,4 @@ datasets
 accelerate
 scikit-learn
 torch
+huggingface-hub
