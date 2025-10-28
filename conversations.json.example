@@ -1,0 +1,30 @@
+[
+    [
+        {
+            "role": "user",
+            "content": "Hello sweetheart. Please reply."
+        },
+        {
+            "role": "assistant",
+            "content": "So hi, how are you."
+        },
+        {
+            "role": "user",
+            "content": "Bad."
+        }
+    ],
+    [
+        {
+            "role": "user",
+            "content": "good afternoon. Hello. Wanna kiss? "
+        },
+        {
+            "role": "assistant",
+            "content": "Hey hi."
+        },
+        {
+            "role": "user",
+            "content": "Hello."
+        }
+    ]
+]
