@@ -1,54 +1,81 @@
+import time
+
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
 
-
-def reply(chat_history: str) -> str:
+def reply(chat_history: list, model, tokenizer, use_cuda: bool) -> str:
     """
-    :param chat_history: in format like below in example, messages are one blow other
+    :param chat_history: in format  [{"role": "user", "content": "some message"}]
     """
-    inputs = tokenizer.encode(chat_history, return_tensors='pt')
-    if torch.cuda.is_available():
-        inputs.to('cuda')
-        model.to('cuda')
 
-    bad_words = ["User:", "Bot:", "<|endoftext|>", "User :", "Bot :"]
-    bad_words_ids = [tokenizer.encode(word)[0] for word in bad_words if tokenizer.encode(word)]
-
-    reply_ids = model.generate(
-        inputs,
-        max_length=128,
-        pad_token_id=tokenizer.eos_token_id,
-        top_p=0.9,  # Keeps top 90% probability mass — more natural replies
-        temperature=0.8,  # smooths token probabilities
-        repetition_penalty=1.3,  # Penalizes repeating tokens (like “...”)
-        no_repeat_ngram_size=3,  # prevents repeating same 3-gram phrases
-        bad_words_ids=[bad_words_ids] if bad_words_ids else None,
+    print('Apply chat template')
+    prompt = tokenizer.apply_chat_template(
+        chat_history,
+        tokenize=False,  # Returns a text string instead of token IDs
+        add_generation_prompt=True,  # Adds a special token that tells the model "start generating now"
     )
-    return tokenizer.decode(reply_ids[0], skip_special_tokens=True)
+
+    if use_cuda and torch.cuda.is_available():
+        device = "cuda"
+        model.cuda()
+    else:
+        device = "cpu"
+
+    # Tokenize - using the CORRECT method
+    print('Tokenizer')
+    inputs = tokenizer(prompt, add_special_tokens=False, return_tensors="pt").to(device)
+
+    print('Generate output')
+    with torch.no_grad():  # Disables gradient calculation (faster, uses less memory)
+        outputs = model.generate(
+            **inputs,
+            max_new_tokens=50,
+            do_sample=False,  # ↑ Use greedy search (faster)
+            temperature=1.0,  # ↓ Lower = faster but less creative
+            num_beams=1,  # ↑ No beam search (much faster)
+            early_stopping=True,  # ↑ Stop when confident
+            pad_token_id=tokenizer.eos_token_id,
+        )
+
+    print('Decode response')
+    response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    return response
 
 
-model_names = [
-    # 'microsoft/DialoGPT-small',
-    # 'microsoft/DialoGPT-medium',
-    # 'microsoft/DialoGPT-large',
-    './trained_model',
+# device = 'cpu'
+model_path = './trained_model'
+# model, tokenizer = FastLanguageModel.from_pretrained(
+#     model_name='./trained_model',
+#     max_seq_length=2048,
+#     dtype=None,
+#     load_in_4bit=True,
+# )
+
+tokenizer = AutoTokenizer.from_pretrained(model_path)
+model = AutoModelForCausalLM.from_pretrained(
+    model_path,
+    device_map="cpu",  # explicitly use CPU
+    offload_folder="offload",
+    low_cpu_mem_usage=True,
+)
+chat_history = [
+    {"role": "user", "content": "Hello sweetheart. Please reply."},
+    {"role": "assistant", "content": "So hi, my fucker, how are you?"},
+    {"role": "user", "content": "Bad"},
+    {"role": "assistant", "content": "Why are you bad honey?"},
+    {"role": "user", "content": "I haven't fucked in a long time"},
+    {"role": "assistant", "content": "Oh, fuck. So how long haven't you fucked?"},
+    {"role": "user", "content": "A dozen days and you've been fucking lately or are you dry?"},
 ]
 
-for model_name in model_names:
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForCausalLM.from_pretrained(model_name)
-    chat_history = [
-        'User: Hello sweetheart. Please reply.',
-        'Bot: So hi, my fucker, how are you.',
-        'User: Bad.',
-        'Bot: Why are you bad honey?',
-        'User: I haven\'t fucked in a long time.',
-        'Bot: Oh, fuck. So how long haven\'t you fucked?',
-        'User: A dozen days and you\'ve been fucking lately or are you dry?',
-        'Bot:'
-    ]
-    result = reply('\n'.join(chat_history))
-    print(model_name)
-    print(result)
-    print('')
+start_time = time.time()
+result = reply(chat_history, model, tokenizer, False)
+end_time = time.time()
+execution_time = end_time - start_time
+print(f"Execution time: {execution_time:.4f} seconds")
+
+# print(type(model))
+# print(type(tokenizer))
+print(result)
+print('')
