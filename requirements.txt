@@ -1,3 +1,5 @@
 torch
-unsloth
+datasets
+huggingface_hub
+peft
 transformers
