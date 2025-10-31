@@ -58,6 +58,9 @@ outputs = model.generate(
     eos_token_id=tokenizer.eos_token_id
 )
 
-reply = tokenizer.decode(outputs[0], skip_special_tokens=True)
+# --- Only decode newly generated tokens ---
+generated_tokens = outputs[0][inputs["input_ids"].shape[-1]:]
+reply = tokenizer.decode(generated_tokens, skip_special_tokens=True)
+
 print("Assistant reply:")
 print(reply)
