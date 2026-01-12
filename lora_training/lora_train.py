@@ -1,9 +1,10 @@
-import os
 import json
+import os
 import shutil
 import torch
 from datasets import Dataset
 from huggingface_hub import login
+from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 from transformers import (
     AutoTokenizer,
     AutoModelForCausalLM,
@@ -12,12 +13,11 @@ from transformers import (
     DataCollatorForLanguageModeling,
     BitsAndBytesConfig
 )
-from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 
 # ---------------------------------------------------------------------
 # Login to Hugging Face
 # ---------------------------------------------------------------------
-login(token="your_hf_key")
+login(token="hf_...")
 
 if torch.cuda.is_available():
     print("✅ Using GPU:", torch.cuda.get_device_name(0))
@@ -34,78 +34,127 @@ os.makedirs("./trained_model", exist_ok=True)
 # ---------------------------------------------------------------------
 # Load model and tokenizer (quantized 4-bit for efficiency)
 # ---------------------------------------------------------------------
-model_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+# model_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+# model_name = "meta-llama/Llama-3.1-8B-Instruct"
+# model_name = "meta-llama/Llama-3.3-70B-Instruct"
+# model_name = "meta-llama/Llama-4-Scout-17B-16E-Instruct"
+model_name = "mistralai/Mistral-7B-Instruct-v0.3"
 
 bnb_config = BitsAndBytesConfig(
-    load_in_4bit=True,
-    bnb_4bit_quant_type="nf4",
-    bnb_4bit_compute_dtype=torch.float16,
-    bnb_4bit_use_double_quant=True,
+    load_in_4bit=True,  # quantize the model weights to 4-bit
+    bnb_4bit_quant_type="nf4",  # non-uniform 4-bit quantization scheme
+    bnb_4bit_compute_dtype=torch.float16,  # dequantize weights to FP16 for computation
+    bnb_4bit_use_double_quant=True,  # quantizes the quantization constants themselves
 )
 
-tokenizer = AutoTokenizer.from_pretrained(model_name)
+tokenizer = AutoTokenizer.from_pretrained(model_name)  # automatically loads correct tokenizer for the model
 model = AutoModelForCausalLM.from_pretrained(
     model_name,
     quantization_config=bnb_config,
-    device_map="auto"
+    device_map="auto"  # determine automatically which GPU/CPU the model is loaded on
 )
 
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
 
 # ---------------------------------------------------------------------
-# Fix chat template issue if needed
-# ---------------------------------------------------------------------
-if model_name.startswith("meta-llama") and tokenizer.chat_template is None:
-    tokenizer.chat_template = """{% for message in messages %}{% if message['role'] == 'user' %}<|start_header_id|>user<|end_header_id|>\n\n{{ message['content'] }}<|eot_id|>{% elif message['role'] == 'assistant' %}<|start_header_id|>assistant<|end_header_id|>\n\n{{ message['content'] }}<|eot_id|>{% endif %}{% endfor %}{% if add_generation_prompt %}<|start_header_id|>assistant<|end_header_id|>\n\n{% endif %}"""
-
-# ---------------------------------------------------------------------
 # Prepare dataset
 # ---------------------------------------------------------------------
+"""
+conversations.json
+[
+  [
+    {
+      "role": "user",
+      "content": "Hello. Please reply."
+    },
+    {
+      "role": "assistant",
+      "content": "So hi, how are you."
+    }
+  ]
+]
+"""
 with open("conversations.json", "r") as f:
     conversations = json.load(f)
 
+"""
+Formatted data will be array of strings for each conversation:
+"<|system|> You are a helpful assistant.\n<|user|> Hello?\n<|assistant|>",
+"<|system|> You are a helpful assistant.\n<|user|> Hello, who won the World Cup in 2022?\n<|assistant|>"
+"""
 formatted_data = []
 for conversation in conversations:
-    text = tokenizer.apply_chat_template(conversation, tokenize=False, add_generation_prompt=False)
-    formatted_data.append(text)
+    try:
+        text = tokenizer.apply_chat_template(
+            conversation,
+            tokenize=False,  # do not tokenize just yet, return normal string
+            add_generation_prompt=True  # add "assistant" prompt at the end: <|assistant|>
+        )
+        formatted_data.append(text)
+    except Exception as e:
+        print(e)
+        print(conversation)
 
+"""
+creates HuggingFace Dataset object from list.
+Output for dataset is:
+Dataset({
+    features: ['text'],
+    num_rows: 1000
+})
+dataset[0]["text"] equals to "<|system|> You are a helpful assistant.\n<|user|> Hello?\n<|assistant|>"
+"""
 dataset = Dataset.from_dict({"text": formatted_data})
 
+
 def preprocess(example):
+    """
+    convert conversation to tokens
+    tokenized = {
+        "input_ids": [15496, 11, 995, 50256],
+        "attention_mask": [1, 1, 1, 1],
+        "labels": [15496, 11, 995, 50256],
+    }
+    """
     tokenized = tokenizer(
         example["text"],
-        truncation=True,
-        max_length=512,
-        padding=False,
+        truncation=True,  # cut off sequences longer than max_length
+        max_length=512,  # maximum number of tokens in input_ids
+        padding=False,  # do not pad sequences, it will be done in batch collator
     )
+    # in causal model target lables are the same as input IDs
     tokenized["labels"] = tokenized["input_ids"].copy()
     return tokenized
 
-tokenized_dataset = dataset.map(preprocess, batched=True, remove_columns=["text"])
 
-data_collator = DataCollatorForLanguageModeling(
-    tokenizer=tokenizer,
-    mlm=False,
-    pad_to_multiple_of=8,
+# tokenized HuggingFace Dataset with columns: ["input_ids", "attention_mask", "labels"]
+tokenized_dataset = dataset.map(
+    preprocess,
+    batched=True,  # process multiple examples at once
+    remove_columns=["text"]  # remove original "text" column after tokenization
 )
 
 # ---------------------------------------------------------------------
 # Apply LoRA adapter (this is the key change)
 # ---------------------------------------------------------------------
-model.gradient_checkpointing_enable()
-model = prepare_model_for_kbit_training(model)
+model.gradient_checkpointing_enable()  # don't understand what it does honestly
+model = prepare_model_for_kbit_training(model)  # just prepares quantized model for safe training
 
 lora_config = LoraConfig(
-    r=16,                     # rank (higher = more trainable parameters)
-    lora_alpha=32,
-    target_modules=["q_proj", "v_proj"],  # common for Llama models
+    r=16,  # rank (higher = more trainable parameters). How complex model update can be.
+    lora_alpha=32,  # how strong the update is
+    target_modules=["q_proj", "v_proj"],
+    # which layers to modify, query and value projections. they have the most influence on attention behviour.
     lora_dropout=0.05,
     bias="none",
     task_type="CAUSAL_LM",
 )
 
 model = get_peft_model(model, lora_config)
+
+# Prints something like:
+# trainable params: 4,194,304 || all params: 6,738,415,616 || trainable: 0.062%
 model.print_trainable_parameters()
 
 # ---------------------------------------------------------------------
@@ -113,16 +162,25 @@ model.print_trainable_parameters()
 # ---------------------------------------------------------------------
 training_args = TrainingArguments(
     output_dir="./trained_model",
-    num_train_epochs=3,
-    per_device_train_batch_size=1,
+    num_train_epochs=3,  # number of full passes over dataset (2-5 epoch)
+    per_device_train_batch_size=1,  # how many training samples are processed at once on single GPU
     gradient_accumulation_steps=8,
-    learning_rate=1e-4,
-    warmup_steps=50,
-    fp16=True,
-    logging_steps=10,
-    save_strategy="epoch",
+    # process 8 samples before updating weights and resetting gradients (the “direction and strength” in which each weight should change to make the model better.)
+    learning_rate=1e-4,  # how fast model learns
+    warmup_steps=50,  # do not learn all at once, learn gradually
+    fp16=True,  # use 16-bit floating number during training
+    logging_steps=10,  # log training loss every 10 steps
+    save_strategy="epoch",  # save a checkpoint after each epoch
     report_to="none",
-    optim="paged_adamw_32bit",
+    optim="paged_adamw_32bit",  # This optimizer is from bitsandbytes
+)
+
+# The data collator takes the tokenized dataset samples and turns them into PyTorch tensors with the correct shape so the model can understand them.
+data_collator = DataCollatorForLanguageModeling(
+    tokenizer=tokenizer,
+    mlm=False,  # this means we are doing causal language modeling (MLM=masked e.g. BERT, CLM=causal e.g. GPT)
+    pad_to_multiple_of=8,
+    # instead of padding to the longest sequence, pad to next multiple of 8 tokens. mostly because of GPU effciency
 )
 
 trainer = Trainer(
