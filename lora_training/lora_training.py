@@ -14,7 +14,7 @@ from transformers import (
     Trainer,
     DataCollatorForLanguageModeling,
     Mistral3ForConditionalGeneration,
-    MistralCommonBackend
+    MistralCommonBackend, BitsAndBytesConfig
 )
 
 load_dotenv()
@@ -41,21 +41,28 @@ os.makedirs("./trained_model", exist_ok=True)
 # ---------------------------------------------------------------------
 model_name = os.getenv("MODEL_NAME")
 
+bnb_config = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_quant_type='nf4',
+    bnb_4bit_compute_dtype=torch.float16,
+    bnb_4bit_use_double_quant=True
+)
+
 if 'Ministral-3' in model_name:
     tokenizer = MistralCommonBackend.from_pretrained(model_name)
     model = Mistral3ForConditionalGeneration.from_pretrained(
         model_name,
         torch_dtype=torch.float16,
-        load_in_4bit=True,
-        device_map="auto"
+        device_map="auto",
+        quantization_config=bnb_config,
     )
 else:
     tokenizer = AutoTokenizer.from_pretrained(model_name)  # automatically loads correct tokenizer for the model
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         torch_dtype=torch.float16,
-        load_in_4bit=True,
-        device_map="auto"  # determine automatically which GPU/CPU the model is loaded on
+        device_map="auto",  # determine automatically which GPU/CPU the model is loaded on
+        quantization_config = bnb_config,
     )
 
 if tokenizer.pad_token is None:
