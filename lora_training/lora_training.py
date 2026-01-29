@@ -46,6 +46,7 @@ if 'Ministral-3' in model_name:
     model = Mistral3ForConditionalGeneration.from_pretrained(
         model_name,
         torch_dtype=torch.float16,
+        load_in_4bit=True,
         device_map="auto"
     )
 else:
@@ -53,6 +54,7 @@ else:
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         torch_dtype=torch.float16,
+        load_in_4bit=True,
         device_map="auto"  # determine automatically which GPU/CPU the model is loaded on
     )
 
