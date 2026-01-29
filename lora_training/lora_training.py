@@ -49,7 +49,6 @@ bnb_config = BitsAndBytesConfig(
 )
 
 if 'Ministral-3' in model_name:
-    tokenizer = MistralCommonBackend.from_pretrained(model_name)
     model = Mistral3ForConditionalGeneration.from_pretrained(
         model_name,
         torch_dtype=torch.float16,
@@ -57,7 +56,6 @@ if 'Ministral-3' in model_name:
         quantization_config=bnb_config,
     )
 else:
-    tokenizer = AutoTokenizer.from_pretrained(model_name)  # automatically loads correct tokenizer for the model
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         torch_dtype=torch.float16,
@@ -65,6 +63,7 @@ else:
         quantization_config = bnb_config,
     )
 
+tokenizer = AutoTokenizer.from_pretrained(model_name)
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
 
@@ -100,7 +99,6 @@ for conversation in conversations:
         text = tokenizer.apply_chat_template(
             conversation,
             tokenize=False,  # do not tokenize just yet, return normal string
-            add_generation_prompt=True  # add "assistant" prompt at the end: <|assistant|>
         )
         formatted_data.append(text)
     except Exception as e:
