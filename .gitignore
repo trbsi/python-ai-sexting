@@ -5,3 +5,4 @@ conversations.json
 emojis_extracted.txt
 __pycache__
 lora_model.zip
+trained_model

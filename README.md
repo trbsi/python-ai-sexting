@@ -1,12 +1,15 @@
-# Screenshots
-
-![image info](./screenshot.png)
-
 # About
 
-Code for fine-tuning LLMs
+Code for fine-tuning LLMs using LoRA.
 
+# LLMs
 
-1. Install venv `sudo apt install python3-venv`
-2. Create venv `python3 -m venv .venv`
-3. Activate venv `source .venv/bin/activate`
+- mistralai/Ministral-3-14B-Instruct-2512-BF16
+- mistralai/Ministral-8B-Instruct-2410
+
+# How to run
+
+``` 
+python3 -m lora_training.lora_training
+python3 -m lora_training.lora_reply
+```

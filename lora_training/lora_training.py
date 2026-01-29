@@ -1,8 +1,10 @@
 import json
 import os
 import shutil
+
 import torch
 from datasets import Dataset
+from dotenv import load_dotenv
 from huggingface_hub import login
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 from transformers import (
@@ -14,10 +16,12 @@ from transformers import (
     BitsAndBytesConfig
 )
 
+load_dotenv()
+
 # ---------------------------------------------------------------------
 # Login to Hugging Face
 # ---------------------------------------------------------------------
-login(token="hf_...")
+login(token=os.getenv("HUGGING_FACE_TOKEN"))
 
 if torch.cuda.is_available():
     print("✅ Using GPU:", torch.cuda.get_device_name(0))
@@ -34,11 +38,7 @@ os.makedirs("./trained_model", exist_ok=True)
 # ---------------------------------------------------------------------
 # Load model and tokenizer (quantized 4-bit for efficiency)
 # ---------------------------------------------------------------------
-# model_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
-# model_name = "meta-llama/Llama-3.1-8B-Instruct"
-# model_name = "meta-llama/Llama-3.3-70B-Instruct"
-# model_name = "meta-llama/Llama-4-Scout-17B-16E-Instruct"
-model_name = "mistralai/Mistral-7B-Instruct-v0.3"
+model_name = os.getenv("MODEL_NAME")
 
 bnb_config = BitsAndBytesConfig(
     load_in_4bit=True,  # quantize the model weights to 4-bit

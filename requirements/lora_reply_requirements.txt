@@ -1,5 +1,0 @@
-datasets
-accelerate
-huggingface-hub
-bitsandbytes
-peft

@@ -1,13 +1,15 @@
 import datetime
+import os
+
 import torch
+from dotenv import load_dotenv
 from peft import PeftModel
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
+
+load_dotenv()
 
 # -------------------- Paths / model --------------------
-# base_model = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"  # or your TinyLlama
-# base_model = "meta-llama/Llama-3.1-8B-Instruct"
-# base_model= "meta-llama/Llama-3.3-70B-Instruct"
-base_model = "mistralai/Mistral-7B-Instruct-v0.3"
+base_model = os.getenv("MODEL_NAME")
 adapter_path = "./trained_model"  # path to your LoRA adapter
 
 # -------------------- Load tokenizer --------------------
@@ -18,10 +20,16 @@ if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
 
 # -------------------- Load model + LoRA --------------------
+bnb_config = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_quant_type="nf4",
+    bnb_4bit_use_double_quant=True,
+    bnb_4bit_compute_dtype=torch.bfloat16,
+)
 model = AutoModelForCausalLM.from_pretrained(
     base_model,
-    dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
-    device_map={"": "cuda"}
+    quantization_config=bnb_config,
+    device_map="cuda"
 )
 
 model = PeftModel.from_pretrained(model, adapter_path)
@@ -57,9 +65,14 @@ chat_histories = [
 for chat_history in chat_histories:
     t1 = datetime.datetime.now().timestamp()
     # -------------------- Build input text --------------------
-    style_instruction = "Assistant should respond in short, casual sentences.\n\n"
-    style_instruction = ''
-    input_text = style_instruction + tokenizer.apply_chat_template(
+    chat_history.insert(
+        0,
+        {
+            "role": "system",
+            "content": "Assistant should respond in short, casual sentences."
+        },
+    )
+    input_text = tokenizer.apply_chat_template(
         chat_history,
         tokenize=False,
         add_generation_prompt=True  # model continues as assistant
@@ -82,7 +95,8 @@ for chat_history in chat_histories:
     input_length = inputs['input_ids'].shape[1]  # get size of input text
     generated_tokens = outputs[0][input_length:]  # basically remove input tokens and get only newly generated
     reply = tokenizer.decode(generated_tokens, skip_special_tokens=True)
+
     t2 = datetime.datetime.now().timestamp()
     time = round(t2 - t1)
     print(f'{time} seconds')
-    print("Assistant reply:", reply)
+    print("Reply:", reply)

@@ -1,0 +1,6 @@
+datasets==4.5.0
+accelerate==1.12.0
+huggingface-hub==1.3.4
+bitsandbytes==0.49.1
+peft==0.18.1
+python-dotenv==1.2.1
