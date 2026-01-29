@@ -4,16 +4,25 @@ import os
 import torch
 from dotenv import load_dotenv
 from peft import PeftModel
-from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
+from transformers import (
+    AutoTokenizer,
+    AutoModelForCausalLM,
+    BitsAndBytesConfig,
+    MistralCommonBackend,
+    Mistral3ForConditionalGeneration
+)
 
 load_dotenv()
 
 # -------------------- Paths / model --------------------
-base_model = os.getenv("MODEL_NAME")
+model_name = os.getenv("MODEL_NAME")
 adapter_path = "./trained_model"  # path to your LoRA adapter
 
 # -------------------- Load tokenizer --------------------
-tokenizer = AutoTokenizer.from_pretrained(base_model)
+if 'Ministral-3' in model_name:
+    tokenizer = MistralCommonBackend.from_pretrained(model_name)
+else:
+    tokenizer = AutoTokenizer.from_pretrained(model_name)  # automatically loads correct tokenizer for the model
 
 # Fix pad token if missing
 if tokenizer.pad_token is None:
@@ -26,11 +35,19 @@ bnb_config = BitsAndBytesConfig(
     bnb_4bit_use_double_quant=True,
     bnb_4bit_compute_dtype=torch.bfloat16,
 )
-model = AutoModelForCausalLM.from_pretrained(
-    base_model,
-    quantization_config=bnb_config,
-    device_map="cuda"
-)
+
+if 'Ministral-3' in model_name:
+    model = Mistral3ForConditionalGeneration.from_pretrained(
+        model_name,
+        quantization_config=bnb_config,
+        device_map="cuda"
+    )
+else:
+    model = AutoModelForCausalLM.from_pretrained(
+        model_name,
+        quantization_config=bnb_config,
+        device_map="cuda"
+    )
 
 model = PeftModel.from_pretrained(model, adapter_path)
 model.eval()  # evaluation mode

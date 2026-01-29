@@ -12,7 +12,9 @@ from transformers import (
     AutoModelForCausalLM,
     TrainingArguments,
     Trainer,
-    DataCollatorForLanguageModeling
+    DataCollatorForLanguageModeling,
+    Mistral3ForConditionalGeneration,
+    MistralCommonBackend
 )
 
 load_dotenv()
@@ -39,12 +41,20 @@ os.makedirs("./trained_model", exist_ok=True)
 # ---------------------------------------------------------------------
 model_name = os.getenv("MODEL_NAME")
 
-tokenizer = AutoTokenizer.from_pretrained(model_name)  # automatically loads correct tokenizer for the model
-model = AutoModelForCausalLM.from_pretrained(
-    model_name,
-    torch_dtype=torch.float16,
-    device_map="cuda"  # determine automatically which GPU/CPU the model is loaded on
-)
+if 'Ministral-3' in model_name:
+    tokenizer = MistralCommonBackend.from_pretrained(model_name)
+    model = Mistral3ForConditionalGeneration.from_pretrained(
+        model_name,
+        torch_dtype=torch.float16,
+        device_map="auto"
+    )
+else:
+    tokenizer = AutoTokenizer.from_pretrained(model_name)  # automatically loads correct tokenizer for the model
+    model = AutoModelForCausalLM.from_pretrained(
+        model_name,
+        torch_dtype=torch.float16,
+        device_map="auto"  # determine automatically which GPU/CPU the model is loaded on
+    )
 
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
