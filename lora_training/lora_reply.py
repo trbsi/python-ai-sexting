@@ -69,7 +69,7 @@ for chat_history in chat_histories:
         0,
         {
             "role": "system",
-            "content": "Assistant should respond in short, casual sentences."
+            "content": "Assistant should respond in short, casual sentences. Talk nasty and dirty. Ask user some questions. Engage user in conversation."
         },
     )
     input_text = tokenizer.apply_chat_template(

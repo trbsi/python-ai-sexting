@@ -12,8 +12,7 @@ from transformers import (
     AutoModelForCausalLM,
     TrainingArguments,
     Trainer,
-    DataCollatorForLanguageModeling,
-    BitsAndBytesConfig
+    DataCollatorForLanguageModeling
 )
 
 load_dotenv()
@@ -40,18 +39,11 @@ os.makedirs("./trained_model", exist_ok=True)
 # ---------------------------------------------------------------------
 model_name = os.getenv("MODEL_NAME")
 
-bnb_config = BitsAndBytesConfig(
-    load_in_4bit=True,  # quantize the model weights to 4-bit
-    bnb_4bit_quant_type="nf4",  # non-uniform 4-bit quantization scheme
-    bnb_4bit_compute_dtype=torch.float16,  # dequantize weights to FP16 for computation
-    bnb_4bit_use_double_quant=True,  # quantizes the quantization constants themselves
-)
-
 tokenizer = AutoTokenizer.from_pretrained(model_name)  # automatically loads correct tokenizer for the model
 model = AutoModelForCausalLM.from_pretrained(
     model_name,
-    quantization_config=bnb_config,
-    device_map="auto"  # determine automatically which GPU/CPU the model is loaded on
+    torch_dtype=torch.float16,
+    device_map="cuda"  # determine automatically which GPU/CPU the model is loaded on
 )
 
 if tokenizer.pad_token is None:
