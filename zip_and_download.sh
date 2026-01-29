@@ -19,4 +19,4 @@ zip -r "$ZIP_FILE" ./trained_model
 # ==========================
 # Step 2: Copy zip to local laptop
 # ==========================
-echo "e.g.: scp -P 2222 root@remote_host:/workspace/$ZIP_FILE ~/Downloads/"
+echo "e.g.: scp -P 37149  root@86.57.175.52:/workspace/repo/lora_model.zip ."
