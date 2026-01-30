@@ -129,13 +129,13 @@ def reply(prompt: None | str):
 
 if __name__ == "__main__":
     print("Model loaded. Type 'exit' to quit.")
-    
+
     torch.cuda.synchronize()
     used_gb = torch.cuda.memory_allocated() / 1024 ** 3
     reserved_gb = torch.cuda.memory_reserved() / 1024 ** 3
 
-    print(f"GPU allocated: {used_gb:.2f} GB")
-    print(f"GPU reserved:  {reserved_gb:.2f} GB")
+    print(f"GPU Used: {used_gb:.2f} GB")
+    print(f"GPU Total:  {reserved_gb:.2f} GB")
 
     while True:
         prompt = input(">>> ")

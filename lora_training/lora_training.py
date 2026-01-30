@@ -176,7 +176,7 @@ training_args = TrainingArguments(
     gradient_accumulation_steps=8,
     # process 8 samples before updating weights and resetting gradients (the “direction and strength” in which each weight should change to make the model better.)
     learning_rate=1e-4,  # how fast model learns
-    warmup_steps=50,  # do not learn all at once, learn gradually
+    warmup_steps=100,  # do not learn all at once, learn gradually
     fp16=True,  # use 16-bit floating number during training
     logging_steps=10,  # log training loss every 10 steps
     save_strategy="epoch",  # save a checkpoint after each epoch
