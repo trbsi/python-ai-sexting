@@ -51,14 +51,15 @@ bnb_config = BitsAndBytesConfig(
 if 'Ministral-3' in model_name:
     model = Mistral3ForConditionalGeneration.from_pretrained(
         model_name,
-        torch_dtype=torch.float16,
+        dtype=torch.float16,
         device_map="auto",
         quantization_config=bnb_config,
     )
 else:
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
-        torch_dtype=torch.float16,
+        # use 16 bits to store model weights in GPU, otherwise it will store in original precision like 32 bits
+        dtype=torch.float16,
         device_map="auto",  # determine automatically which GPU/CPU the model is loaded on
         quantization_config=bnb_config,
     )
