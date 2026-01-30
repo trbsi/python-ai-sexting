@@ -14,7 +14,7 @@ from transformers import (
     Trainer,
     DataCollatorForLanguageModeling,
     Mistral3ForConditionalGeneration,
-    MistralCommonBackend, BitsAndBytesConfig
+    BitsAndBytesConfig
 )
 
 load_dotenv()
@@ -60,7 +60,7 @@ else:
         model_name,
         torch_dtype=torch.float16,
         device_map="auto",  # determine automatically which GPU/CPU the model is loaded on
-        quantization_config = bnb_config,
+        quantization_config=bnb_config,
     )
 
 tokenizer = AutoTokenizer.from_pretrained(model_name)

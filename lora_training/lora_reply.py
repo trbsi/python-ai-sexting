@@ -3,16 +3,21 @@ import os
 
 import torch
 from dotenv import load_dotenv
+from huggingface_hub import login
 from peft import PeftModel
 from transformers import (
     AutoTokenizer,
     AutoModelForCausalLM,
     BitsAndBytesConfig,
-    MistralCommonBackend,
     Mistral3ForConditionalGeneration
 )
 
 load_dotenv()
+
+# ---------------------------------------------------------------------
+# Login to Hugging Face
+# ---------------------------------------------------------------------
+login(token=os.getenv("HUGGING_FACE_TOKEN"))
 
 # -------------------- Paths / model --------------------
 model_name = os.getenv("MODEL_NAME")
@@ -20,7 +25,7 @@ adapter_path = "./trained_model"  # path to your LoRA adapter
 
 # -------------------- Load tokenizer --------------------
 if 'Ministral-3' in model_name:
-    tokenizer = MistralCommonBackend.from_pretrained(model_name)
+    tokenizer = Mistral3ForConditionalGeneration.from_pretrained(model_name)
 else:
     tokenizer = AutoTokenizer.from_pretrained(model_name)  # automatically loads correct tokenizer for the model
 
@@ -100,8 +105,8 @@ for chat_history in chat_histories:
     # -------------------- Generate reply --------------------
     outputs = model.generate(
         **inputs,
-        max_new_tokens=50,  # generate max 50 new tokens. input + up to 50 new tokens
-        temperature=0.7,
+        max_new_tokens=100,  # generate max 50 new tokens. input + up to 50 new tokens
+        temperature=0.9,
         # controls randomness, lower value means safe/precise generation, higher value gives more randomness and creativity
         top_p=0.9,  #
         do_sample=True,  # I don't understand this
