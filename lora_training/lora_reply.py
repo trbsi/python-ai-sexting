@@ -133,4 +133,7 @@ if __name__ == "__main__":
         prompt = input(">>> ")
         if prompt.strip().lower() == "exit":
             break
-        print(reply(prompt))
+        try:
+            print(reply(prompt))
+        except Exception as e:
+            print(e)
