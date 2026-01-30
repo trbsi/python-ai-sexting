@@ -24,11 +24,7 @@ model_name = os.getenv("MODEL_NAME")
 adapter_path = "./trained_model"  # path to your LoRA adapter
 
 # -------------------- Load tokenizer --------------------
-if 'Ministral-3' in model_name:
-    tokenizer = Mistral3ForConditionalGeneration.from_pretrained(model_name)
-else:
-    tokenizer = AutoTokenizer.from_pretrained(model_name)  # automatically loads correct tokenizer for the model
-
+tokenizer = AutoTokenizer.from_pretrained(model_name)  # automatically loads correct tokenizer for the model
 # Fix pad token if missing
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
